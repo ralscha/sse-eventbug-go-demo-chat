@@ -1,0 +1,38 @@
+version: '3'
+
+tasks:
+  default:
+    desc: List available tasks
+    silent: true
+    cmds: [task --list]
+
+  server:
+    desc: Run the Go chat backend on port 8080
+    cmds: [go run .]
+
+  client:
+    desc: Start the unchanged Ionic/Angular client
+    dir: client
+    deps: [client-install]
+    cmds: [npm start -- --host 0.0.0.0]
+
+  client-install:
+    desc: Install frontend dependencies
+    dir: client
+    cmds: [npm install]
+
+  client-build:
+    desc: Build the frontend
+    dir: client
+    deps: [client-install]
+    cmds: [npm run build]
+
+  test:
+    desc: Run backend tests
+    cmds: [go test ./...]
+
+  build:
+    desc: Build backend and frontend
+    cmds:
+      - go build ./...
+      - task: client-build

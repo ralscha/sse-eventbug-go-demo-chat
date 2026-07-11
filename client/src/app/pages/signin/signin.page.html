@@ -1,0 +1,28 @@
+<ion-header>
+  <ion-toolbar color="dark">
+    <ion-title>Signin</ion-title>
+  </ion-toolbar>
+</ion-header>
+
+<ion-content class="ion-padding">
+  <form [formRoot]="usernameForm" (submit)="enterUsername()">
+    <ion-list lines="none">
+      <ion-item>
+        <ion-input
+          [formField]="usernameForm"
+          label="Enter your Nickname"
+          labelPlacement="stacked"
+          name="username"
+          type="text"
+        />
+      </ion-item>
+      <ion-item>
+        <ion-label>
+          <ion-button color="secondary" expand="block" size="default" type="submit"
+            >Enter</ion-button
+          >
+        </ion-label>
+      </ion-item>
+    </ion-list>
+  </form>
+</ion-content>

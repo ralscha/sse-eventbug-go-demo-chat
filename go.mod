@@ -1,5 +1,5 @@
 module github.com/ralscha/sse-eventbug-go-demo-chat
 
-go 1.26.5
+go 1.26.6
 
 require github.com/ralscha/sse-eventbus-go v1.0.0

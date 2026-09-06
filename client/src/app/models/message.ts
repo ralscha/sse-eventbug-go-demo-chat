@@ -1,8 +1,8 @@
-export type MessageType = 'ease-in' | 'ease-out' | 'ease-in-out';
+export type MessageType = 'JOIN' | 'LEAVE' | 'MSG';
 
 export interface Message {
   sendDate: number;
   user: string;
-  type: 'JOIN' | 'LEAVE' | 'MSG';
+  type: MessageType;
   message: string;
 }

@@ -73,7 +73,7 @@ export class MessagesPage implements OnInit, OnDestroy {
   private readonly route = inject(ActivatedRoute);
   private readonly navCtrl = inject(NavController);
   private readonly chatElement = viewChild.required(IonList, { read: ElementRef });
-  private mutationObserver!: MutationObserver;
+  private mutationObserver: MutationObserver | null = null;
 
   constructor() {
     addIcons({ exitOutline, happySharp, sendSharp });
@@ -81,8 +81,11 @@ export class MessagesPage implements OnInit, OnDestroy {
 
   async exit(): Promise<void> {
     sessionStorage.removeItem('username');
-    await this.chatService.signout();
-    this.navCtrl.navigateRoot('/signin');
+    try {
+      await this.chatService.signout();
+    } finally {
+      this.navCtrl.navigateRoot('/signin');
+    }
   }
 
   ngOnInit(): void {
@@ -95,10 +98,20 @@ export class MessagesPage implements OnInit, OnDestroy {
         this.roomName = null;
       }
 
-      this.chatService.joinRoom(this.roomId, (response) => {
-        const newMessages = JSON.parse(response.data) as Message[];
-        this.messages.update((messages) => [...messages, ...newMessages].slice(-100));
-      });
+      void this.chatService
+        .joinRoom(this.roomId, (response) => {
+          const newMessages = JSON.parse(response.data) as Message[];
+          this.messages.update((messages) => [...messages, ...newMessages].slice(-100));
+        })
+        .then((response) => {
+          if (!response.ok) {
+            this.navCtrl.navigateBack('/room');
+          }
+        })
+        .catch((error) => {
+          console.error('Could not join room', error);
+          this.navCtrl.navigateBack('/room');
+        });
 
       this.mutationObserver = new MutationObserver(() => {
         setTimeout(() => {
@@ -113,13 +126,15 @@ export class MessagesPage implements OnInit, OnDestroy {
   }
 
   ngOnDestroy(): void {
-    this.mutationObserver.disconnect();
+    this.mutationObserver?.disconnect();
     if (this.roomId) {
-      this.chatService.leaveRoom(this.roomId);
+      void this.chatService.leaveRoom(this.roomId).catch((error) => {
+        console.error('Could not leave room', error);
+      });
     }
   }
 
-  sendMessage(): void {
+  async sendMessage(): Promise<void> {
     if (this.messageForm().invalid()) {
       this.messageForm().markAsTouched();
       return;
@@ -128,10 +143,16 @@ export class MessagesPage implements OnInit, OnDestroy {
     const message = this.messageForm().value().trim();
 
     if (message && this.roomId) {
-      this.chatService.send(this.roomId, message);
-      this.messageForm().reset('');
-
-      this.onFocus();
+      try {
+        const response = await this.chatService.send(this.roomId, message);
+        if (!response.ok) {
+          throw new Error(`HTTP ${response.status}`);
+        }
+        this.messageForm().reset('');
+        this.onFocus();
+      } catch (error) {
+        console.error('Could not send message', error);
+      }
     }
   }
 

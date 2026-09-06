@@ -56,9 +56,12 @@ export class RoomPage {
     this.navCtrl.navigateForward(`/messages/${room.id}`);
   }
 
-  exit(): void {
+  async exit(): Promise<void> {
     sessionStorage.removeItem('username');
-    this.chatService.signout();
-    this.navCtrl.navigateRoot('/signin');
+    try {
+      await this.chatService.signout();
+    } finally {
+      this.navCtrl.navigateRoot('/signin');
+    }
   }
 }

@@ -2,21 +2,13 @@ package main
 
 import "github.com/ralscha/sse-eventbus-go"
 
-type userRegistry struct {
-	*sseeventbus.MemorySubscriptionRegistry
-	onClientRemoved func(string)
+// userLifecycleListener removes application state when the bus automatically
+// retires inactive or unreachable clients. Explicit sign-out does this itself.
+type userLifecycleListener struct {
+	sseeventbus.NopListener
+	onClientsRemoved func([]string)
 }
 
-func (r *userRegistry) Unsubscribe(clientID, event string) {
-	r.MemorySubscriptionRegistry.Unsubscribe(clientID, event)
-	if event == roomAddedEvent {
-		r.onClientRemoved(clientID)
-	}
-}
-func (r *userRegistry) UnsubscribeAll(clientID string) {
-	wasRegistered := r.IsSubscribed(clientID, roomAddedEvent)
-	r.MemorySubscriptionRegistry.UnsubscribeAll(clientID)
-	if wasRegistered {
-		r.onClientRemoved(clientID)
-	}
+func (l *userLifecycleListener) AfterClientsUnregistered(clientIDs []string) {
+	l.onClientsRemoved(clientIDs)
 }

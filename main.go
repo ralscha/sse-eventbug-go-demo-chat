@@ -15,10 +15,10 @@ import (
 
 func main() {
 	chat := newChatServer()
-	registry := &userRegistry{MemorySubscriptionRegistry: sseeventbus.NewMemorySubscriptionRegistry(), onClientRemoved: chat.removeUser}
 	bus, err := sseeventbus.New(
-		sseeventbus.WithSubscriptionRegistry(registry),
-		sseeventbus.WithClientExpiration(time.Hour, time.Hour),
+		sseeventbus.WithListener(&userLifecycleListener{onClientsRemoved: chat.removeUsers}),
+		sseeventbus.WithHeartbeat(30*time.Second, "keep-alive"),
+		sseeventbus.WithClientExpiration(time.Hour, time.Minute),
 	)
 	if err != nil {
 		log.Fatal(err)
@@ -30,16 +30,30 @@ func main() {
 	go chat.cleanupRooms(ctx)
 
 	server := &http.Server{Addr: ":8080", Handler: cors(chat.routes()), ReadHeaderTimeout: 5 * time.Second}
+	serveErrors := make(chan error, 1)
 	go func() {
 		log.Printf("chat backend listening on http://localhost%s", server.Addr)
-		if err := server.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
-			log.Fatal(err)
-		}
+		serveErrors <- server.ListenAndServe()
 	}()
-	<-ctx.Done()
+	var serveErr error
+	select {
+	case <-ctx.Done():
+	case serveErr = <-serveErrors:
+		stop()
+	}
 
-	shutdownCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-	defer cancel()
-	_ = server.Shutdown(shutdownCtx)
-	_ = bus.Close(shutdownCtx)
+	closeCtx, cancelClose := context.WithTimeout(context.Background(), 5*time.Second)
+	if err := bus.Close(closeCtx); err != nil {
+		log.Printf("close event bus: %v", err)
+	}
+	cancelClose()
+
+	shutdownCtx, cancelShutdown := context.WithTimeout(context.Background(), 5*time.Second)
+	if err := server.Shutdown(shutdownCtx); err != nil {
+		log.Printf("shut down HTTP server: %v", err)
+	}
+	cancelShutdown()
+	if serveErr != nil && !errors.Is(serveErr, http.ErrServerClosed) {
+		log.Fatal(serveErr)
+	}
 }
